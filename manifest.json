@@ -1,0 +1,8 @@
+{
+  "name": "CommuteGuard Pro",
+  "short_name": "CommuteGuard",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff"
+}
