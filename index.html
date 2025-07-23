@@ -84,10 +84,45 @@
     function formatTime(mins) {
       const h = Math.floor((mins + 1440) % 1440 / 60);
       const m = (mins + 1440) % 60;
-      return \`\${String(h).padStart(2, "0")}:\${String(m).padStart(2, "0")}\`;
+      return \`\${String(h).padStart(2, "0")}:\${String(m).padStart(2, "0")}\`
+
+       // Schedule the alarm to trigger exactly at the wake‑up time
+function scheduleAlarm() {
+    if (!currentAlarmTime) return;
+
+    const now = new Date();
+    let alarmDate = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        currentAlarmTime.wakeHours,
+        currentAlarmTime.wakeMins,
+        0,
+        0
+    );
+
+    // If the wake time has already passed today, schedule for tomorrow
+    if (alarmDate.getTime() <= now.getTime()) {
+        alarmDate.setDate(alarmDate.getDate() + 1);
     }
 
-    // Calculate wake up and commute times and display them
+    const diffMs = alarmDate.getTime() - now.getTime();
+
+    // Clear any existing timer before setting a new one
+    if (alarmTimeoutId) {
+        clearTimeout(alarmTimeoutId);
+    }
+
+    alarmTimeoutId = setTimeout(() => {
+        if (alarmActive) {
+            triggerAlarm();
+        }
+    }, diffMs);
+}
+
+    
+
+     Calculate wake up and commute times and display them
     function calculateTimes() {
       const workTime = document.getElementById("workTime").value;
       const prep = parseInt(document.getElementById("prepTime").value || 0);
@@ -106,7 +141,7 @@
       document.getElementById("arriveTime").textContent = workTime;
       document.getElementById("timeline").style.display = "block";
 
-      // Remember computed wake-up hour and minute for scheduling
+       Remember computed wake-up hour and minute for scheduling
       const [wakeHours, wakeMinutes] = wake.split(":").map(Number);
       currentWakeTime = { hours: wakeHours, minutes: wakeMinutes };
       return currentWakeTime;
@@ -142,7 +177,9 @@
       scheduleAlarm();
       const wakeTimeStr = document.getElementById("wakeTime").textContent;
       document.getElementById("message").textContent = \`✅ Alarm set for \${wakeTimeStr}\`;
-    });
+    
   </script>
+  
 </body>
+  
 </html>
