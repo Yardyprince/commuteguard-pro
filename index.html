@@ -1,966 +1,148 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CommuteGuard Pro - Smart Work Alarm</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-            color: #fff;
-            min-height: 100vh;
-            padding: 10px;
-        }
-
-        .app-container {
-            width: 100%;
-            max-width: 420px;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 25px;
-            padding: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        }
-
-        .app-header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .app-header h1 {
-            font-size: 28px;
-            background: linear-gradient(45deg, #00dbde, #fc00ff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 5px;
-        }
-
-        .enterprise-badge {
-            display: inline-block;
-            background: linear-gradient(45deg, #ffd700, #ffed4e);
-            color: #333;
-            padding: 4px 12px;
-            border-radius: 15px;
-            font-size: 11px;
-            font-weight: bold;
-            margin-top: 5px;
-        }
-
-        .time-display {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 15px;
-        }
-
-        .current-time {
-            font-size: 36px;
-            font-weight: bold;
-            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
-        }
-
-        .alarm-status {
-            text-align: center;
-            padding: 15px;
-            border-radius: 12px;
-            margin: 15px 0;
-            font-weight: bold;
-            transition: all 0.3s ease;
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .alarm-active {
-            background: linear-gradient(45deg, #ff416c, #ff4b2b);
-            animation: pulse 2s infinite, shake 0.5s infinite;
-        }
-
-        .alarm-snoozed {
-            background: linear-gradient(45deg, #ff9800, #ffc107);
-            animation: pulse 3s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255, 65, 108, 0.7); }
-            50% { opacity: 0.9; box-shadow: 0 0 0 10px rgba(255, 65, 108, 0); }
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-3px); }
-            75% { transform: translateX(3px); }
-        }
-
-        .alarm-visual {
-            font-size: 60px;
-            margin: 10px 0;
-            display: none;
-            animation: ring 1s ease-in-out infinite;
-        }
-
-        @keyframes ring {
-            0%, 100% { transform: rotate(-15deg); }
-            50% { transform: rotate(15deg); }
-        }
-
-        .motion-button {
-            width: 100%;
-            padding: 20px;
-            background: linear-gradient(45deg, #ff9800, #ffc107);
-            border: none;
-            border-radius: 12px;
-            color: white;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            display: none;
-            margin: 15px 0;
-            animation: pulse 1s infinite;
-        }
-
-        .motion-button:hover {
-            background: linear-gradient(45deg, #f57c00, #ffa000);
-        }
-
-        .config-section {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            padding: 15px;
-            margin: 15px 0;
-        }
-
-        .config-item {
-            margin: 12px 0;
-        }
-
-        .config-item label {
-            display: block;
-            margin-bottom: 5px;
-            font-size: 14px;
-            opacity: 0.9;
-        }
-
-        .config-item input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: white;
-            font-size: 14px;
-        }
-
-        .tabs {
-            display: block;
-            margin: 15px 0;
-        }
-
-        .tab-nav {
-            display: flex;
-            gap: 3px;
-            background: rgba(255, 255, 255, 0.05);
-            padding: 4px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 10px 5px;
-            border: none;
-            background: transparent;
-            color: rgba(255, 255, 255, 0.7);
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.3s ease;
-        }
-
-        .tab-btn.active {
-            background: linear-gradient(45deg, #00dbde, #fc00ff);
-            color: white;
-            font-weight: bold;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .visual-timeline {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 15px;
-            margin: 15px 0;
-        }
-
-        .timeline-flow {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 24px;
-            margin: 10px 0;
-        }
-
-        .timeline-times {
-            display: flex;
-            justify-content: space-between;
-            font-size: 11px;
-            opacity: 0.8;
-            margin-top: 5px;
-        }
-
-        .calculation-display {
-            background: rgba(0, 219, 222, 0.1);
-            border: 1px solid rgba(0, 219, 222, 0.3);
-            border-radius: 10px;
-            padding: 12px;
-            margin: 15px 0;
-            font-family: monospace;
-            font-size: 13px;
-        }
-
-        .calculation-line {
-            margin: 3px 0;
-        }
-
-        .weather-alert {
-            background: rgba(255, 193, 7, 0.2);
-            border: 1px solid rgba(255, 193, 7, 0.4);
-            border-radius: 8px;
-            padding: 10px;
-            margin: 10px 0;
-            display: none;
-            font-size: 13px;
-        }
-
-        .streak-display {
-            background: linear-gradient(45deg, #4caf50, #8bc34a);
-            border-radius: 12px;
-            padding: 15px;
-            text-align: center;
-            margin: 15px 0;
-        }
-
-        .streak-number {
-            font-size: 32px;
-            font-weight: bold;
-        }
-
-        .history-entry {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            padding: 12px;
-            margin: 10px 0;
-            border-left: 3px solid transparent;
-            font-size: 13px;
-        }
-
-        .history-entry.on-time {
-            border-left-color: #4caf50;
-        }
-
-        .history-entry.late {
-            border-left-color: #ff4b2b;
-        }
-
-        .history-timeline {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 5px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            padding: 10px 5px;
-            margin: 10px 0;
-            text-align: center;
-            font-size: 11px;
-        }
-
-        .timeline-icon {
-            font-size: 20px;
-            margin-bottom: 2px;
-        }
-
-        .pattern-insights {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.05));
-            border: 1px solid rgba(255, 215, 0, 0.3);
-            border-radius: 10px;
-            padding: 12px;
-            margin: 15px 0;
-            font-size: 12px;
-        }
-
-        .insight-item {
-            margin: 5px 0;
-        }
-
-        .alarm-button {
-            width: 100%;
-            padding: 15px;
-            border: none;
-            border-radius: 12px;
-            background: linear-gradient(45deg, #00dbde, #fc00ff);
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 15px;
-        }
-
-        .alarm-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(0, 219, 222, 0.4);
-        }
-
-        .route-status {
-            display: none;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            padding: 12px;
-            margin: 15px 0;
-            text-align: center;
-        }
-
-        .status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 5px;
-            background: #ff4b2b;
-        }
-
-        .status-indicator.active {
-            background: #4caf50;
-            animation: pulse-dot 2s infinite;
-        }
-
-        .status-indicator.waiting {
-            background: #ffc107;
-            animation: pulse-dot 2s infinite;
-        }
-
-        @keyframes pulse-dot {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
-            50% { box-shadow: 0 0 0 5px rgba(76, 175, 80, 0); }
-        }
-
-        .ai-mic-button {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: linear-gradient(45deg, #ff6b6b, #ff4757);
-            border: none;
-            color: white;
-            font-size: 24px;
-            cursor: pointer;
-            box-shadow: 0 4px 20px rgba(255, 107, 107, 0.4);
-            transition: all 0.3s ease;
-            z-index: 1000;
-        }
-
-        .ai-mic-button:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 25px rgba(255, 107, 107, 0.6);
-        }
-
-        .ai-mic-button.active {
-            background: linear-gradient(45deg, #4caf50, #45a049);
-            animation: pulse 1.5s infinite;
-        }
-
-        .ai-chat-panel {
-            position: fixed;
-            bottom: 100px;
-            right: 30px;
-            width: 350px;
-            height: 450px;
-            background: rgba(20, 20, 40, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            display: none;
-            flex-direction: column;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            z-index: 999;
-        }
-
-        .ai-chat-header {
-            padding: 15px;
-            background: linear-gradient(45deg, #00dbde, #fc00ff);
-            border-radius: 15px 15px 0 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: bold;
-        }
-
-        .ai-chat-body {
-            flex: 1;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .ai-response {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            padding: 15px;
-            overflow-y: auto;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .ai-input-group {
-            display: flex;
-            gap: 10px;
-        }
-
-        .ai-input-group input {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: white;
-            font-size: 14px;
-        }
-
-        .voice-btn {
-            padding: 10px 15px;
-            background: linear-gradient(45deg, #ff6b6b, #ff4757);
-            border: none;
-            border-radius: 8px;
-            color: white;
-            cursor: pointer;
-            font-size: 18px;
-        }
-
-        .snooze-count {
-            display: inline-block;
-            background: rgba(255, 152, 0, 0.2);
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 11px;
-            margin-left: 5px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CommuteGuard Pro - Smart Work Alarm</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      color: #fff;
+      padding: 20px;
+    }
+    .app-container {
+      max-width: 420px;
+      margin: 0 auto;
+      background: rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 0 40px rgba(0,0,0,0.3);
+    }
+    h1 {
+      text-align: center;
+      font-size: 26px;
+      background: linear-gradient(45deg, #00dbde, #fc00ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .config-item label {
+      display: block;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    .config-item input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 4px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 8px;
+      color: #fff;
+    }
+    #message {
+      margin-top: 20px;
+      font-size: 18px;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
-    <div class="app-container">
-        <div class="app-header">
-            <h1>CommuteGuard Pro</h1>
-            <p style="opacity: 0.8; font-size: 14px;">Never Be Late Again</p>
-            <span class="enterprise-badge">Enterprise Account - Free for Employees</span>
-        </div>
-
-        <div class="time-display">
-            <div class="current-time" id="currentTime">--:--</div>
-            <div style="font-size: 12px; opacity: 0.8;" id="currentDate">Loading...</div>
-        </div>
-
-        <div class="alarm-status" id="alarmStatus">
-            <div class="alarm-visual" id="alarmVisual">⏰</div>
-            <div id="alarmMessage">Smart Alarm Not Set</div>
-            <div id="alarmSubMessage" style="font-size: 12px; opacity: 0.8; margin-top: 5px;"></div>
-        </div>
-
-        <button class="motion-button" id="motionBtn" onclick="snoozeAlarm()">
-            🚗 Start Driving (Snooze Alarm)
-        </button>
-
-        <div class="route-status" id="routeStatus">
-            <span class="status-indicator" id="statusDot"></span>
-            <span id="trackingStatus">Waiting for motion...</span>
-        </div>
-
-        <!-- Main configuration section - always visible -->
-        <div class="config-section">
-            <div class="config-item">
-                <label>🕒 Work Start Time</label>
-                <input type="time" id="workTime" value="09:00" onchange="updateCalculations()">
-            </div>
-            
-            <div class="config-item">
-                <label>📍 Work Location</label>
-                <input type="text" id="workLocation" placeholder="123 Main St, City" value="123 Main St, Downtown">
-            </div>
-            
-            <div class="config-item">
-                <label>🧼 Prep Time (minutes)</label>
-                <input type="number" id="prepTime" value="30" min="10" max="120" onchange="updateCalculations()">
-            </div>
-        </div>
-
-        <div class="visual-timeline" id="visualTimeline" style="display: none;">
-            <div style="text-align: center; font-size: 13px; margin-bottom: 8px;">Your Morning Timeline →</div>
-            <div class="timeline-flow">
-                <span>🛏️</span>
-                <span>→</span>
-                <span>🚿</span>
-                <span>→</span>
-                <span>☕</span>
-                <span>→</span>
-                <span>🚗</span>
-                <span>→</span>
-                <span>🏢</span>
-            </div>
-            <div class="timeline-times">
-                <span id="wakeTime">7:15</span>
-                <span id="readyTime">7:45</span>
-                <span id="leaveTime">8:00</span>
-                <span id="arriveTime">9:00</span>
-            </div>
-        </div>
-
-        <div class="calculation-display" id="calcDisplay" style="display: none;">
-            <div class="calculation-line">📝 Smart Calculation:</div>
-            <div class="calculation-line" id="calcWork">Work Time: 9:00 AM</div>
-            <div class="calculation-line" id="calcCommute">- Commute: 35 mins</div>
-            <div class="calculation-line" id="calcPrep">- Prep Time: 30 mins</div>
-            <div class="calculation-line" style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 5px; margin-top: 5px;">
-                <strong id="calcResult">= Wake Up: 7:55 AM</strong>
-            </div>
-        </div>
-
-        <div class="weather-alert" id="weatherAlert">
-            <span style="font-size: 18px;">🌧️</span> Rain detected - added 10 mins to commute time
-        </div>
-
-        <div class="tabs" id="tabs" style="display: block;">
-            <div class="tab-nav">
-                <button class="tab-btn active" onclick="showTab('streak')">🔥 Streak</button>
-                <button class="tab-btn" onclick="showTab('history')">📊 History</button>
-                <button class="tab-btn" onclick="showTab('insights')">💡 Insights</button>
-            </div>
-
-            <div id="streak" class="tab-content active">
-                <div class="streak-display">
-                    <div class="streak-number">🔥 5</div>
-                    <div style="font-size: 14px;">Days On-Time!</div>
-                    <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">Top 10% in your company!</div>
-                </div>
-            </div>
-
-            <div id="history" class="tab-content">
-                <h3 style="margin-bottom: 15px; font-size: 18px;">📊 Your Commute History</h3>
-                
-                <div class="history-entry on-time">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <strong>Today - Thursday</strong>
-                        <span>☀️ Sunny</span>
-                    </div>
-                    <div class="history-timeline">
-                        <div>
-                            <div class="timeline-icon">🏠</div>
-                            <div style="color: #00dbde; font-weight: bold;">7:05</div>
-                            <div>Left</div>
-                        </div>
-                        <div>
-                            <div class="timeline-icon">🚗</div>
-                            <div style="color: #00dbde; font-weight: bold;">32m</div>
-                            <div>Drive</div>
-                        </div>
-                        <div>
-                            <div class="timeline-icon">🏢</div>
-                            <div style="color: #00dbde; font-weight: bold;">8:37</div>
-                            <div>Arrived</div>
-                        </div>
-                        <div>
-                            <div class="timeline-icon">✅</div>
-                            <div style="color: #4caf50; font-weight: bold;">23m</div>
-                            <div>Early</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="history-entry late">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <strong>Tuesday</strong>
-                        <span>🌧️ Rainy</span>
-                    </div>
-                    <div class="history-timeline">
-                        <div>
-                            <div class="timeline-icon">🏠</div>
-                            <div style="color: #00dbde; font-weight: bold;">7:10</div>
-                            <div>Left</div>
-                        </div>
-                        <div>
-                            <div class="timeline-icon">🚗</div>
-                            <div style="color: #ff4b2b; font-weight: bold;">65m</div>
-                            <div>Traffic</div>
-                        </div>
-                        <div>
-                            <div class="timeline-icon">🏢</div>
-                            <div style="color: #00dbde; font-weight: bold;">9:15</div>
-                            <div>Arrived</div>
-                        </div>
-                        <div>
-                            <div class="timeline-icon">❌</div>
-                            <div style="color: #ff4b2b; font-weight: bold;">15m</div>
-                            <div>Late</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="insights" class="tab-content">
-                <h3 style="margin-bottom: 15px; font-size: 18px;">💡 Your Patterns</h3>
-                
-                <div class="pattern-insights">
-                    <div class="insight-item">🌧️ <strong>Weather Impact:</strong> Rain adds 25-30 mins to your commute</div>
-                    <div class="insight-item">📅 <strong>Worst Day:</strong> Tuesdays are 20% slower on average</div>
-                    <div class="insight-item">⏰ <strong>Sweet Spot:</strong> Leaving before 7:15 AM saves 10-15 mins</div>
-                    <div class="insight-item">🎯 <strong>Success Rate:</strong> 85% on-time when following app</div>
-                    <div class="insight-item">💰 <strong>Value:</strong> Saved 4.5 hours this month</div>
-                </div>
-
-                <div style="background: rgba(76, 175, 80, 0.1); border-radius: 10px; padding: 12px; margin-top: 15px;">
-                    <strong>🏆 Company Leaderboard</strong>
-                    <div style="margin-top: 10px; font-size: 13px;">
-                        1. Sarah Chen - 100%<br>
-                        2. Marcus Johnson - 100%<br>
-                        3. Lisa Park - 95%<br>
-                        <div style="background: rgba(0,219,222,0.2); padding: 8px; border-radius: 6px; margin-top: 8px;">
-                            <strong>4. You - 85% (↑2 this week)</strong>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <button class="alarm-button" id="alarmBtn" onclick="toggleAlarm()">
-            🔔 Set Smart Alarm
-        </button>
-
-        <!-- AI Assistant Button -->
-        <button class="ai-mic-button" id="aiMicBtn" onclick="toggleAIChat()">
-            <span id="micIcon">🎤</span>
-        </button>
-
-        <!-- AI Chat Panel -->
-        <div class="ai-chat-panel" id="aiChatPanel">
-            <div class="ai-chat-header">
-                <span>🤖 CommuteGuard AI</span>
-                <button onclick="closeAIChat()" style="background: none; border: none; color: white; font-size: 20px;">×</button>
-            </div>
-            <div class="ai-chat-body">
-                <div id="aiResponse" class="ai-response">
-                    Hi! I can help with your commute. Try saying:<br>
-                    • "I need gas"<br>
-                    • "Find coffee nearby"<br>
-                    • "I'm running late"
-                </div>
-                <div class="ai-input-group">
-                    <input type="text" id="aiInput" placeholder="Type or use voice..." onkeypress="if(event.key==='Enter') sendTextMessage()">
-                    <button onclick="startVoiceInput()" class="voice-btn">🎙️</button>
-                </div>
-            </div>
-        </div>
+  <div class="app-container">
+    <h1>CommuteGuard Pro</h1>
+    <div class="config-item">
+      <label>🕒 Work Start Time</label>
+      <input type="time" id="workTime" value="09:00" />
     </div>
+    <div class="config-item">
+      <label>📍 Work Location</label>
+      <input type="text" id="workLocation" value="123 Main St, Downtown" />
+    </div>
+    <div class="config-item">
+      <label>⏱️ Prep Time (minutes)</label>
+      <input type="number" id="prepTime" value="30" min="5" max="180" />
+    </div>
+    <div style="margin-top: 20px;">
+      <button id="setAlarmBtn" style="padding: 12px; width: 100%; border: none; border-radius: 10px; background: linear-gradient(45deg, #00dbde, #fc00ff); color: white; font-weight: bold; font-size: 16px;">🔔 Calculate &amp; Set Alarm</button>
+    </div>
+    <div id="timeline" style="margin-top: 20px; display: none;">
+      <h3 style="font-size: 16px;">Your Morning Plan:</h3>
+      <ul style="list-style: none; padding-left: 0; font-size: 14px; margin-top: 10px;">
+        <li>⏰ Wake Up: <span id="wakeTime">--:--</span></li>
+        <li>🚿 Get Ready: <span id="readyTime">--:--</span></li>
+        <li>🚗 Leave by: <span id="leaveTime">--:--</span></li>
+        <li>🏢 Arrive at Work: <span id="arriveTime">--:--</span></li>
+      </ul>
+    </div>
+    <div id="message"></div>
+  </div>
+  <script>
+    // Keep track of the scheduled alarm timeout ID
+    let alarmTimeoutId = null;
+    let currentWakeTime = null;
 
-    <audio id="alarmSound" loop>
-        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE9oEEB" type="audio/wav">
-    </audio>
+    function formatTime(mins) {
+      const h = Math.floor((mins + 1440) % 1440 / 60);
+      const m = (mins + 1440) % 60;
+      return \`\${String(h).padStart(2, "0")}:\${String(m).padStart(2, "0")}\`;
+    }
 
-    <script>
-        let alarmActive = false;
-        let alarmRinging = false;
-        let alarmSnoozed = false;
-        let snoozeCount = 0;
-        let motionCheckInterval = null;
-        let currentAlarmTime = null;
+    // Calculate wake up and commute times and display them
+    function calculateTimes() {
+      const workTime = document.getElementById("workTime").value;
+      const prep = parseInt(document.getElementById("prepTime").value || 0);
+      // Simulate commute between 25 and 45 minutes
+      const commute = Math.floor(Math.random() * 20) + 25;
+      const [h, m] = workTime.split(":").map(Number);
+      const workMins = h * 60 + m;
+      const leaveMins = workMins - commute;
+      const wakeMins = leaveMins - prep;
+      const wake = formatTime(wakeMins);
+      const ready = formatTime(wakeMins + prep);
+      const leave = formatTime(leaveMins);
+      document.getElementById("wakeTime").textContent = wake;
+      document.getElementById("readyTime").textContent = ready;
+      document.getElementById("leaveTime").textContent = leave;
+      document.getElementById("arriveTime").textContent = workTime;
+      document.getElementById("timeline").style.display = "block";
 
-        function updateTime() {
-            const now = new Date();
-            document.getElementById('currentTime').textContent = 
-                now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-            document.getElementById('currentDate').textContent = 
-                now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-        }
+      // Remember computed wake-up hour and minute for scheduling
+      const [wakeHours, wakeMinutes] = wake.split(":").map(Number);
+      currentWakeTime = { hours: wakeHours, minutes: wakeMinutes };
+      return currentWakeTime;
+    }
 
-        function calculateAlarmTime() {
-            const workTime = document.getElementById('workTime').value;
-            const prepTime = parseInt(document.getElementById('prepTime').value);
-            
-            // Simulate traffic time (25-45 mins)
-            let commuteTime = Math.floor(Math.random() * 20) + 25;
-            
-            // 30% chance of weather delay
-            const hasWeather = Math.random() > 0.7;
-            if (hasWeather) {
-                document.getElementById('weatherAlert').style.display = 'block';
-                commuteTime += 10;
-            } else {
-                document.getElementById('weatherAlert').style.display = 'none';
-            }
+    // Schedule the alarm to trigger exactly at the wake-up time
+    function scheduleAlarm() {
+      if (!currentWakeTime) return;
+      const now = new Date();
+      let alarmDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), currentWakeTime.hours, currentWakeTime.minutes, 0, 0);
+      // If the wake time has already passed today, schedule for tomorrow
+      if (alarmDate.getTime() <= now.getTime()) {
+        alarmDate.setDate(alarmDate.getDate() + 1);
+      }
+      const diffMs = alarmDate.getTime() - now.getTime();
+      if (alarmTimeoutId) {
+        clearTimeout(alarmTimeoutId);
+        alarmTimeoutId = null;
+      }
+      alarmTimeoutId = setTimeout(() => {
+        triggerAlarm();
+      }, diffMs);
+    }
 
-            const [hours, minutes] = workTime.split(':').map(Number);
-            const workMinutes = hours * 60 + minutes;
-            
-            const wakeMinutes = workMinutes - commuteTime - prepTime;
-            const leaveMinutes = workMinutes - commuteTime;
-            
-            const wakeHours = Math.floor(wakeMinutes / 60);
-            const wakeMins = wakeMinutes % 60;
-            const leaveHours = Math.floor(leaveMinutes / 60);
-            const leaveMins = leaveMinutes % 60;
+    // Handle alarm ringing
+    function triggerAlarm() {
+      document.getElementById("message").textContent = "⏰ WAKE UP! Time for work!";
+      // Optionally, play a sound or show another notification here
+    }
 
-            // Update calculation display
-            document.getElementById('calcWork').textContent = `Work Time: ${workTime}`;
-            document.getElementById('calcCommute').textContent = `- Commute: ${commuteTime} mins${hasWeather ? ' (rain)' : ''}`;
-            document.getElementById('calcPrep').textContent = `- Prep Time: ${prepTime} mins`;
-            document.getElementById('calcResult').textContent = 
-                `= Wake Up: ${String(wakeHours).padStart(2, '0')}:${String(wakeMins).padStart(2, '0')}`;
-
-            // Update timeline
-            document.getElementById('wakeTime').textContent = 
-                `${String(wakeHours).padStart(2, '0')}:${String(wakeMins).padStart(2, '0')}`;
-            document.getElementById('readyTime').textContent = 
-                `${String(Math.floor((wakeMinutes + prepTime * 0.7) / 60)).padStart(2, '0')}:${String(Math.floor((wakeMinutes + prepTime * 0.7) % 60)).padStart(2, '0')}`;
-            document.getElementById('leaveTime').textContent = 
-                `${String(leaveHours).padStart(2, '0')}:${String(leaveMins).padStart(2, '0')}`;
-            document.getElementById('arriveTime').textContent = workTime;
-
-            currentAlarmTime = { wakeHours, wakeMins, commuteTime };
-            return currentAlarmTime;
-        }
-
-        function updateCalculations() {
-            if (alarmActive) {
-                calculateAlarmTime();
-                const alarmMessage = document.getElementById('alarmMessage');
-                alarmMessage.textContent = `✅ Alarm set for ${String(currentAlarmTime.wakeHours).padStart(2, '0')}:${String(currentAlarmTime.wakeMins).padStart(2, '0')}`;
-            }
-        }
-
-        function showTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            document.getElementById(tabName).classList.add('active');
-            event.target.classList.add('active');
-        }
-
-        function triggerAlarm() {
-            alarmRinging = true;
-            alarmSnoozed = false;
-            const alarmStatus = document.getElementById('alarmStatus');
-            const alarmMessage = document.getElementById('alarmMessage');
-            const alarmSubMessage = document.getElementById('alarmSubMessage');
-            const alarmVisual = document.getElementById('alarmVisual');
-            const motionBtn = document.getElementById('motionBtn');
-            const routeStatus = document.getElementById('routeStatus');
-            
-            alarmStatus.classList.add('alarm-active');
-            alarmStatus.classList.remove('alarm-snoozed');
-            alarmMessage.textContent = '🚨 WAKE UP! Time for work!';
-            alarmSubMessage.textContent = 'Press "Start Driving" to snooze';
-            alarmVisual.style.display = 'block';
-            motionBtn.style.display = 'block';
-            routeStatus.style.display = 'block';
-            
-            // Play alarm sound
-            document.getElementById('alarmSound').play().catch(e => console.log('Audio blocked'));
-        }
-
-        function snoozeAlarm() {
-            if (!alarmRinging) return;
-            
-            snoozeCount++;
-            alarmSnoozed = true;
-            alarmRinging = false;
-            
-            // Temporarily stop alarm sound
-            document.getElementById('alarmSound').pause();
-            
-            // Update UI to show snooze state
-            const alarmStatus = document.getElementById('alarmStatus');
-            const alarmMessage = document.getElementById('alarmMessage');
-            const alarmSubMessage = document.getElementById('alarmSubMessage');
-            const alarmVisual = document.getElementById('alarmVisual');
-            const motionBtn = document.getElementById('motionBtn');
-            const statusDot = document.getElementById('statusDot');
-            const trackingStatus = document.getElementById('trackingStatus');
-            
-            alarmStatus.classList.remove('alarm-active');
-            alarmStatus.classList.add('alarm-snoozed');
-            alarmMessage.innerHTML = `⏸️ Alarm Snoozed <span class="snooze-count">x${snoozeCount}</span>`;
-            alarmSubMessage.textContent = 'Waiting for motion detection...';
-            alarmVisual.style.display = 'none';
-            motionBtn.style.display = 'none';
-            statusDot.classList.add('waiting');
-            trackingStatus.textContent = 'Monitoring for driving motion...';
-            
-            // Start checking for motion
-            startMotionDetection();
-            
-            // Re-trigger alarm after 5 minutes if no motion detected
-            setTimeout(() => {
-                if (alarmSnoozed && !motionDetected) {
-                    triggerAlarm();
-                }
-            }, 300000); // 5 minutes
-        }
-
-        function startMotionDetection() {
-            // Simulate GPS motion detection
-            let motionCheckCount = 0;
-            motionCheckInterval = setInterval(() => {
-                motionCheckCount++;
-                
-                // Simulate detecting driving motion after 10-30 seconds
-                if (motionCheckCount > 2 && Math.random() > 0.7) {
-                    detectDrivingMotion();
-                }
-                
-                // Update status to show we're checking
-                const trackingStatus = document.getElementById('trackingStatus');
-                const dots = '.'.repeat((motionCheckCount % 3) + 1);
-                trackingStatus.textContent = `Monitoring for driving motion${dots}`;
-            }, 3000);
-        }
-
-        function detectDrivingMotion() {
-            // Clear the motion check interval
-            if (motionCheckInterval) {
-                clearInterval(motionCheckInterval);
-                motionCheckInterval = null;
-            }
-            
-            // Stop alarm completely
-            document.getElementById('alarmSound').pause();
-            document.getElementById('alarmSound').currentTime = 0;
-            
-            // Update UI to show successful detection
-            const alarmStatus = document.getElementById('alarmStatus');
-            const alarmMessage = document.getElementById('alarmMessage');
-            const alarmSubMessage = document.getElementById('alarmSubMessage');
-            const statusDot = document.getElementById('statusDot');
-            const trackingStatus = document.getElementById('trackingStatus');
-            
-            alarmStatus.classList.remove('alarm-active', 'alarm-snoozed');
-            alarmStatus.style.background = 'linear-gradient(45deg, #4caf50, #8bc34a)';
-            alarmMessage.textContent = '✅ Driving Detected!';
-            alarmSubMessage.textContent = 'Have a safe commute!';
-            statusDot.classList.remove('waiting');
-            statusDot.classList.add('active');
-            trackingStatus.textContent = 'GPS tracking active - Drive safely!';
-            
-            // Reset snooze count for next time
-            snoozeCount = 0;
-            alarmSnoozed = false;
-        }
-
-        function toggleAlarm() {
-            alarmActive = !alarmActive;
-            const btn = document.getElementById('alarmBtn');
-            const alarmStatus = document.getElementById('alarmStatus');
-            const alarmMessage = document.getElementById('alarmMessage');
-            const tabs = document.getElementById('tabs');
-            const calcDisplay = document.getElementById('calcDisplay');
-            const visualTimeline = document.getElementById('visualTimeline');
-            
-            if (alarmActive) {
-                const alarmTime = calculateAlarmTime();
-                btn.textContent = '❌ Cancel Alarm';
-                btn.style.background = 'linear-gradient(45deg, #ff416c, #ff4b2b)';
-                alarmMessage.textContent = `✅ Alarm set for ${String(alarmTime.wakeHours).padStart(2, '0')}:${String(alarmTime.wakeMins).padStart(2, '0')}`;
-                calcDisplay.style.display = 'block';
-                visualTimeline.style.display = 'block';
-                
-                // Simulate alarm for demo (trigger after 3 seconds)
-                setTimeout(() => {
-                    if (alarmActive) triggerAlarm();
-                }, 3000);
-            } else {
-                btn.textContent = '🔔 Set Smart Alarm';
-                btn.style.background = 'linear-gradient(45deg, #00dbde, #fc00ff)';
-                alarmMessage.textContent = 'Smart Alarm Not Set';
-                calcDisplay.style.display = 'none';
-                visualTimeline.style.display = 'none';
-                document.getElementById('routeStatus').style.display = 'none';
-                
-                // Reset alarm state
-                alarmRinging = false;
-                alarmSnoozed = false;
-                snoozeCount = 0;
-                if (motionCheckInterval) {
-                    clearInterval(motionCheckInterval);
-                    motionCheckInterval = null;
-                }
-                document.getElementById('alarmSound').pause();
-                document.getElementById('alarmSound').currentTime = 0;
-                document.getElementById('alarmStatus').classList.remove('alarm-active', 'alarm-snoozed');
-                document.getElementById('alarmStatus').style.background = '';
-                document.getElementById('alarmVisual').style.display = 'none';
-                document.getElementById('motionBtn').style.display = 'none';
-            }
-        }
-
-        setInterval(updateTime, 1000);
-        updateTime();
-
-        // AI Chat Functions
-        function toggleAIChat() {
-            const panel = document.getElementById('aiChatPanel');
-            const micBtn = document.getElementById('aiMicBtn');
-            
-            if (panel.style.display === 'flex') {
-                panel.style.display = 'none';
-                micBtn.classList.remove('active');
-            } else {
-                panel.style.display = 'flex';
-                micBtn.classList.add('active');
-            }
-        }
-
-        function closeAIChat() {
-            document.getElementById('aiChatPanel').style.display = 'none';
-            document.getElementById('aiMicBtn').classList.remove('active');
-        }
-
-        // Placeholder functions - implement with real API
-        async function handleAIChat(message) {
-            // This is where you'll add the OpenAI API call
-            return "I understand you said: '" + message + "'. In the full version, I'll help find gas stations, coffee shops, or handle delays!";
-        }
-
-        function startVoiceInput() {
-            const response = document.getElementById('aiResponse');
-            response.textContent = 'Voice feature coming soon! For now, type your message.';
-        }
-
-        async function sendTextMessage() {
-            const input = document.getElementById('aiInput');
-            const message = input.value;
-            if (!message) return;
-            
-            document.getElementById('aiResponse').textContent = 'Processing...';
-            const response = await handleAIChat(message);
-            document.getElementById('aiResponse').textContent = response;
-            input.value = '';
-        }
-    </script>
+    document.getElementById("setAlarmBtn").addEventListener("click", () => {
+      calculateTimes();
+      scheduleAlarm();
+      const wakeTimeStr = document.getElementById("wakeTime").textContent;
+      document.getElementById("message").textContent = \`✅ Alarm set for \${wakeTimeStr}\`;
+    });
+  </script>
 </body>
 </html>
