@@ -97,9 +97,11 @@
     const workMins = h * 60 + m;
     const leaveMins = workMins - commute;
     const wakeMins = leaveMins - prep;
+
     const wake = formatTime(wakeMins);
     const ready = formatTime(wakeMins + prep);
     const leave = formatTime(leaveMins);
+
     document.getElementById("wakeTime").textContent = wake;
     document.getElementById("readyTime").textContent = ready;
     document.getElementById("leaveTime").textContent = leave;
@@ -130,6 +132,7 @@
       alarmDate.setDate(alarmDate.getDate() + 1);
     }
     const diffMs = alarmDate.getTime() - now.getTime();
+    // Clear any existing timer before scheduling a new one
     if (alarmTimeoutId) {
       clearTimeout(alarmTimeoutId);
       alarmTimeoutId = null;
@@ -145,6 +148,7 @@
     // Optionally, play a sound or show another notification here
   }
 
+  // Button handler to calculate times and schedule the alarm
   document.getElementById("setAlarmBtn").addEventListener("click", () => {
     calculateTimes();
     scheduleAlarm();
@@ -152,6 +156,7 @@
     document.getElementById("message").textContent = `✅ Alarm set for ${wakeTimeStr}`;
   });
 </script>
+
 
   
 </body>
