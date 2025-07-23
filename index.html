@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <!-- Manifest and PWA meta tags -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <!-- Theme colors and favicons -->
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="CommuteGuard Pro" />
+  <link rel="icon" href="icon-192.png" />
+  <title>CommuteGuard Pro</title>
+
+  <!-- Simple styling for layout -->
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background-color: #f9f9f9;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    form {
+      max-width: 420px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      background: #fff;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    label {
+      font-weight: bold;
+    }
+    input, button {
+      padding: 0.5rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      background-color: #007bff;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #result {
+      margin-top: 1rem;
+      font-weight: bold;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="icon-192.png" alt="CommuteGuard Icon" style="width:64px;height:64px;display:block;margin:0 auto;">
+    <h1>CommuteGuard Pro</h1>
+    <p>Your smart commute alarm is live!</p>
+  </header>
+
+  <form id="commuteForm">
+    <label for="destination">Destination:</label>
+    <input type="text" id="destination" placeholder="Enter your work address" required>
+    <label for="arrivalTime">Desired arrival time:</label>
+    <input type="time" id="arrivalTime" required>
+    <button type="submit">Calculate Wake-up Time</button>
+  </form>
+
+  <div id="result"></div>
+
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js', { scope: './' });
+      });
+    }
+  </script>
+</body>
+</html>
