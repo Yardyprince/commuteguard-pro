@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CommuteGuard Pro - Smart Work Alarm</title>
   <style>
     body {
@@ -137,10 +137,10 @@
 
         const routeData = await routeRes.json();
         const commuteSeconds = routeData.routes?.[0]?.duration?.seconds || 0;
-        const commute = Math.ceil(commuteSeconds / 60); // minutes
+        const commute = Math.ceil(commuteSeconds / 60);
 
         // Step 4: Calculate wake-up, ready, leave times
-        const [h, m] = workTime.split(":" ).map(Number);
+        const [h, m] = workTime.split(":").map(Number);
         const workMins = h * 60 + m;
         const leaveMins = workMins - commute;
         const wakeMins = leaveMins - prep;
@@ -157,7 +157,10 @@
         document.getElementById("timeline").style.display = "block";
 
         // Store wake-up time for scheduling alarm
-        currentWakeTime = { hours: parseInt(wake.split(":" )[0]), minutes: parseInt(wake.split(":" )[1]) };
+        currentWakeTime = {
+          hours: parseInt(wake.split(":")[0]),
+          minutes: parseInt(wake.split(":")[1])
+        };
         scheduleAlarm();
       } catch (err) {
         console.error(err);
@@ -193,14 +196,37 @@
       }, diffMs);
     }
 
-    // Handle alarm ringing
+    // Handle alarm ringing: show message, play beep, re-enable button
     function triggerAlarm() {
       document.getElementById("message").textContent = "⏰ WAKE UP! Time for work!";
-      // Optionally, play a sound or show another notification here
+      // Play a one-second sine wave tone
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = ctx.createOscillator();
+        oscillator.type = "sine";
+        oscillator.frequency.value = 440;
+        oscillator.connect(ctx.destination);
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + 1);
+      } catch (err) {
+        console.error(err);
+      }
+      // Re-enable the button and restore opacity
+      const alarmBtn = document.getElementById("setAlarmBtn");
+      if (alarmBtn) {
+        alarmBtn.disabled = false;
+        alarmBtn.style.opacity = "1";
+      }
     }
 
     // Button handler to calculate times and schedule the alarm
     document.getElementById("setAlarmBtn").addEventListener("click", async () => {
+      const alarmBtn = document.getElementById("setAlarmBtn");
+      // Disable the button and reduce opacity to show it has been clicked
+      if (alarmBtn) {
+        alarmBtn.disabled = true;
+        alarmBtn.style.opacity = "0.6";
+      }
       await calculateTimes();
       const wakeTimeStr = document.getElementById("wakeTime").textContent;
       document.getElementById("message").textContent = `✅ Alarm set for ${wakeTimeStr}`;
