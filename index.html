@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>CommuteGuard Pro - Smart Work Alarm</title>
   <style>
     body {
@@ -39,6 +39,10 @@
       border: 1px solid rgba(255,255,255,0.3);
       border-radius: 8px;
       color: #fff;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
     #message {
       margin-top: 20px;
@@ -77,70 +81,133 @@
     <div id="message"></div>
   </div>
   <script>
-    // Keep track of the scheduled alarm timeout ID
+    // Keep track of the scheduled alarm timeout ID and user preferences
+    const STORAGE_KEY = 'commuteGuard.v1';
     let alarmTimeoutId = null;
     let currentWakeTime = null;
+    let alarmActive = false;
 
     function formatTime(mins) {
       const h = Math.floor((mins + 1440) % 1440 / 60);
       const m = (mins + 1440) % 60;
-      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
 
-    // Calculate wake‑up and commute times and display them using Google Routes API
+    // Save user preferences to localStorage
+    function savePrefs() {
+      const prefs = {
+        workTime: document.getElementById('workTime').value,
+        workLocation: document.getElementById('workLocation').value,
+        prepTime: document.getElementById('prepTime').value
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+    }
+
+    // Load preferences from localStorage on page load
+    function loadPrefs() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const p = JSON.parse(raw);
+        if (p.workTime) document.getElementById('workTime').value = p.workTime;
+        if (p.workLocation) document.getElementById('workLocation').value = p.workLocation;
+        if (p.prepTime) document.getElementById('prepTime').value = p.prepTime;
+      } catch {
+        // ignore malformed data
+      }
+    }
+
+    // Toggle button busy state
+    function setBusy(btn, busy) {
+      if (!btn) return;
+      btn.disabled = busy;
+      btn.style.opacity = busy ? '0.6' : '1';
+    }
+
+    // Validate inputs before calculation
+    function validateInputs() {
+      const prepVal = Number(document.getElementById('prepTime').value);
+      if (!Number.isFinite(prepVal) || prepVal < 0 || prepVal > 300) {
+        showMsg('Prep time must be between 0 and 300 minutes', 'error');
+        return false;
+      }
+      const locVal = document.getElementById('workLocation').value.trim();
+      if (!locVal) {
+        showMsg('Please enter a work location', 'error');
+        return false;
+      }
+      return true;
+    }
+
+    // Display a message with optional error styling
+    function showMsg(text, kind = 'info') {
+      const el = document.getElementById('message');
+      el.textContent = text;
+      el.style.color = kind === 'error' ? '#ffb3b3' : '#fff';
+    }
+
+    // Request notification permission if needed
+    async function ensureNotifPermission() {
+      if (!('Notification' in window)) return false;
+      if (Notification.permission === 'granted') return true;
+      if (Notification.permission === 'denied') return false;
+      const perm = await Notification.requestPermission();
+      return perm === 'granted';
+    }
+
+    // Calculate wake-up and commute times using Google Routes API and schedule alarm
     async function calculateTimes() {
       try {
-        const apiKey = "AIzaSyBGngOfLnpsPHmOYe8bzNpVkizpxIxWeJc";
-        const workTime = document.getElementById("workTime").value;
-        const prep = parseInt(document.getElementById("prepTime").value || 0);
-        const workAddress = document.getElementById("workLocation").value;
+        const apiKey = 'AIzaSyBGngOfLnpsPHmOYe8bzNpVkizpxIxWeJc';
+        const workTime = document.getElementById('workTime').value;
+        const prep = parseInt(document.getElementById('prepTime').value || 0);
+        const workAddress = document.getElementById('workLocation').value;
+        // Save preferences
+        savePrefs();
 
-        // Step 1: Get current location
+        // Get current location
         const position = await new Promise((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject);
         });
         const origLat = position.coords.latitude;
         const origLng = position.coords.longitude;
 
-        // Step 2: Geocode work address to get coordinates
+        // Geocode work address
         const geoRes = await fetch(
           `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(workAddress)}&key=${apiKey}`
         );
         const geoData = await geoRes.json();
-        if (geoData.status !== "OK") throw new Error("Geocoding failed");
+        if (geoData.status !== 'OK') throw new Error('Geocoding failed');
         const destLat = geoData.results[0].geometry.location.lat;
         const destLng = geoData.results[0].geometry.location.lng;
 
-        // Step 3: Call Google Routes API for real-time commute time
-        const routesUrl = `https://routes.googleapis.com/directions/v2:computeRoutes`;
+        // Call Google Routes API for real-time commute
+        const routesUrl = 'https://routes.googleapis.com/directions/v2:computeRoutes';
         const payload = {
           origin: { location: { latLng: { latitude: origLat, longitude: origLng } } },
           destination: { location: { latLng: { latitude: destLat, longitude: destLng } } },
-          travelMode: "DRIVE",
-          routingPreference: "TRAFFIC_AWARE",
+          travelMode: 'DRIVE',
+          routingPreference: 'TRAFFIC_AWARE',
           computeAlternativeRoutes: false,
-          languageCode: "en-US",
-          units: "IMPERIAL"
+          languageCode: 'en-US',
+          units: 'IMPERIAL'
         };
-
         const routeRes = await fetch(routesUrl + `?key=${apiKey}`, {
-          method: "POST",
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
-            "X-Goog-Api-Key": apiKey,
-            "X-Goog-FieldMask": "routes.duration,routes.travelAdvisory"
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': apiKey,
+            'X-Goog-FieldMask': 'routes.duration,routes.travelAdvisory'
           },
           body: JSON.stringify(payload)
         });
-
-        if (!routeRes.ok) throw new Error("Routes API request failed");
-
+        if (!routeRes.ok) throw new Error('Routes API request failed');
         const routeData = await routeRes.json();
         const commuteSeconds = routeData.routes?.[0]?.duration?.seconds || 0;
         const commute = Math.ceil(commuteSeconds / 60);
 
-        // Step 4: Calculate wake-up, ready, leave times
-        const [h, m] = workTime.split(":").map(Number);
+        // Calculate times
+        const [h, m] = workTime.split(':').map(Number);
         const workMins = h * 60 + m;
         const leaveMins = workMins - commute;
         const wakeMins = leaveMins - prep;
@@ -149,22 +216,22 @@
         const ready = formatTime(wakeMins + prep);
         const leave = formatTime(leaveMins);
 
-        // Update the UI
-        document.getElementById("wakeTime").textContent = wake;
-        document.getElementById("readyTime").textContent = ready;
-        document.getElementById("leaveTime").textContent = leave;
-        document.getElementById("arriveTime").textContent = workTime;
-        document.getElementById("timeline").style.display = "block";
+        // Update UI timeline
+        document.getElementById('wakeTime').textContent = wake;
+        document.getElementById('readyTime').textContent = ready;
+        document.getElementById('leaveTime').textContent = leave;
+        document.getElementById('arriveTime').textContent = workTime;
+        document.getElementById('timeline').style.display = 'block';
 
-        // Store wake-up time for scheduling alarm
+        // Store wake-up time and schedule alarm
         currentWakeTime = {
-          hours: parseInt(wake.split(":")[0]),
-          minutes: parseInt(wake.split(":")[1])
+          hours: parseInt(wake.split(':')[0]),
+          minutes: parseInt(wake.split(':')[1])
         };
         scheduleAlarm();
       } catch (err) {
         console.error(err);
-        alert("Failed to calculate times: " + err.message);
+        showMsg('Could not calculate right now. Using last known route if available.', 'error');
       }
     }
 
@@ -181,12 +248,10 @@
         0,
         0
       );
-      // If the wake time has already passed today, schedule for tomorrow
       if (alarmDate.getTime() <= now.getTime()) {
         alarmDate.setDate(alarmDate.getDate() + 1);
       }
       const diffMs = alarmDate.getTime() - now.getTime();
-      // Clear any existing timer before scheduling a new one
       if (alarmTimeoutId) {
         clearTimeout(alarmTimeoutId);
         alarmTimeoutId = null;
@@ -196,14 +261,14 @@
       }, diffMs);
     }
 
-    // Handle alarm ringing: show message, play beep, re-enable button
-    function triggerAlarm() {
-      document.getElementById("message").textContent = "⏰ WAKE UP! Time for work!";
-      // Play a one-second sine wave tone
+    // Handle alarm ringing: show message, beep, notification, reset button
+    async function triggerAlarm() {
+      showMsg('⏰ WAKE UP! Time for work!');
+      // Play beep
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = ctx.createOscillator();
-        oscillator.type = "sine";
+        oscillator.type = 'sine';
         oscillator.frequency.value = 440;
         oscillator.connect(ctx.destination);
         oscillator.start();
@@ -211,26 +276,68 @@
       } catch (err) {
         console.error(err);
       }
-      // Re-enable the button and restore opacity
-      const alarmBtn = document.getElementById("setAlarmBtn");
-      if (alarmBtn) {
-        alarmBtn.disabled = false;
-        alarmBtn.style.opacity = "1";
+      // Send notification
+      if (await ensureNotifPermission()) {
+        new Notification('CommuteGuard Pro', { body: 'Wake up time. Let\\'s go.' });
+      }
+      // Reset alarm state and button
+      alarmActive = false;
+      const btn = document.getElementById('setAlarmBtn');
+      if (btn) {
+        btn.textContent = '🔔 Calculate & Set Alarm';
+        setBusy(btn, false);
       }
     }
 
-    // Button handler to calculate times and schedule the alarm
-    document.getElementById("setAlarmBtn").addEventListener("click", async () => {
-      const alarmBtn = document.getElementById("setAlarmBtn");
-      // Disable the button and reduce opacity to show it has been clicked
-      if (alarmBtn) {
-        alarmBtn.disabled = true;
-        alarmBtn.style.opacity = "0.6";
+    // Event listener for the alarm button
+    const alarmBtn = document.getElementById('setAlarmBtn');
+    alarmBtn.addEventListener('click', async () => {
+      if (alarmActive) {
+        // Cancel the alarm
+        if (alarmTimeoutId) {
+          clearTimeout(alarmTimeoutId);
+          alarmTimeoutId = null;
+        }
+        alarmActive = false;
+        alarmBtn.textContent = '🔔 Calculate & Set Alarm';
+        setBusy(alarmBtn, false);
+        showMsg('Alarm canceled.', 'info');
+        return;
       }
+      // Set a new alarm
+      if (!validateInputs()) return;
+      setBusy(alarmBtn, true);
       await calculateTimes();
-      const wakeTimeStr = document.getElementById("wakeTime").textContent;
-      document.getElementById("message").textContent = `✅ Alarm set for ${wakeTimeStr}`;
+      const wakeStr = document.getElementById('wakeTime').textContent;
+      showMsg(`✅ Alarm set for ${wakeStr}`, 'info');
+      alarmBtn.textContent = 'Cancel Alarm';
+      alarmActive = true;
     });
+
+    // Load preferences on page load and request notifications
+    window.addEventListener('load', () => {
+      loadPrefs();
+      ensureNotifPermission();
+    });
+
+    // Save preferences when inputs change
+    ['workTime', 'workLocation', 'prepTime'].forEach(id => {
+      document.getElementById(id).addEventListener('change', savePrefs);
+    });
+
+    // Register service worker and show update prompt
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js').then(reg => {
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              showMsg('App updated. Reload to apply.', 'info');
+            }
+          });
+        });
+      });
+    }
   </script>
 </body>
 </html>
