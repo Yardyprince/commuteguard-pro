@@ -76,89 +76,135 @@
     </div>
     <div id="message"></div>
   </div>
-<script>
-  // Keep track of the scheduled alarm timeout ID
-  let alarmTimeoutId = null;
-  let currentWakeTime = null;
+  <script>
+    // Keep track of the scheduled alarm timeout ID
+    let alarmTimeoutId = null;
+    let currentWakeTime = null;
 
-  function formatTime(mins) {
-    const h = Math.floor((mins + 1440) % 1440 / 60);
-    const m = (mins + 1440) % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-  }
-
-  // Calculate wake‑up and commute times and display them
-  function calculateTimes() {
-    const workTime = document.getElementById("workTime").value;
-    const prep = parseInt(document.getElementById("prepTime").value || 0);
-    // Simulate commute between 25 and 45 minutes
-    const commute = Math.floor(Math.random() * 20) + 25;
-    const [h, m] = workTime.split(":").map(Number);
-    const workMins = h * 60 + m;
-    const leaveMins = workMins - commute;
-    const wakeMins = leaveMins - prep;
-
-    const wake = formatTime(wakeMins);
-    const ready = formatTime(wakeMins + prep);
-    const leave = formatTime(leaveMins);
-
-    document.getElementById("wakeTime").textContent = wake;
-    document.getElementById("readyTime").textContent = ready;
-    document.getElementById("leaveTime").textContent = leave;
-    document.getElementById("arriveTime").textContent = workTime;
-    document.getElementById("timeline").style.display = "block";
-
-    // Remember computed wake‑up hour and minute for scheduling
-    const [wakeHours, wakeMinutes] = wake.split(":").map(Number);
-    currentWakeTime = { hours: wakeHours, minutes: wakeMinutes };
-    return currentWakeTime;
-  }
-
-  // Schedule the alarm to trigger exactly at the wake‑up time
-  function scheduleAlarm() {
-    if (!currentWakeTime) return;
-    const now = new Date();
-    let alarmDate = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      currentWakeTime.hours,
-      currentWakeTime.minutes,
-      0,
-      0
-    );
-    // If the wake time has already passed today, schedule for tomorrow
-    if (alarmDate.getTime() <= now.getTime()) {
-      alarmDate.setDate(alarmDate.getDate() + 1);
+    function formatTime(mins) {
+      const h = Math.floor((mins + 1440) % 1440 / 60);
+      const m = (mins + 1440) % 60;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     }
-    const diffMs = alarmDate.getTime() - now.getTime();
-    // Clear any existing timer before scheduling a new one
-    if (alarmTimeoutId) {
-      clearTimeout(alarmTimeoutId);
-      alarmTimeoutId = null;
+
+    // Calculate wake‑up and commute times and display them using Google Routes API
+    async function calculateTimes() {
+      try {
+        const apiKey = "AIzaSyBGngOfLnpsPHmOYe8bzNpVkizpxIxWeJc";
+        const workTime = document.getElementById("workTime").value;
+        const prep = parseInt(document.getElementById("prepTime").value || 0);
+        const workAddress = document.getElementById("workLocation").value;
+
+        // Step 1: Get current location
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
+        const origLat = position.coords.latitude;
+        const origLng = position.coords.longitude;
+
+        // Step 2: Geocode work address to get coordinates
+        const geoRes = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(workAddress)}&key=${apiKey}`
+        );
+        const geoData = await geoRes.json();
+        if (geoData.status !== "OK") throw new Error("Geocoding failed");
+        const destLat = geoData.results[0].geometry.location.lat;
+        const destLng = geoData.results[0].geometry.location.lng;
+
+        // Step 3: Call Google Routes API for real-time commute time
+        const routesUrl = `https://routes.googleapis.com/directions/v2:computeRoutes`;
+        const payload = {
+          origin: { location: { latLng: { latitude: origLat, longitude: origLng } } },
+          destination: { location: { latLng: { latitude: destLat, longitude: destLng } } },
+          travelMode: "DRIVE",
+          routingPreference: "TRAFFIC_AWARE",
+          computeAlternativeRoutes: false,
+          languageCode: "en-US",
+          units: "IMPERIAL"
+        };
+
+        const routeRes = await fetch(routesUrl + `?key=${apiKey}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": apiKey,
+            "X-Goog-FieldMask": "routes.duration,routes.travelAdvisory"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!routeRes.ok) throw new Error("Routes API request failed");
+
+        const routeData = await routeRes.json();
+        const commuteSeconds = routeData.routes?.[0]?.duration?.seconds || 0;
+        const commute = Math.ceil(commuteSeconds / 60); // minutes
+
+        // Step 4: Calculate wake-up, ready, leave times
+        const [h, m] = workTime.split(":" ).map(Number);
+        const workMins = h * 60 + m;
+        const leaveMins = workMins - commute;
+        const wakeMins = leaveMins - prep;
+
+        const wake = formatTime(wakeMins);
+        const ready = formatTime(wakeMins + prep);
+        const leave = formatTime(leaveMins);
+
+        // Update the UI
+        document.getElementById("wakeTime").textContent = wake;
+        document.getElementById("readyTime").textContent = ready;
+        document.getElementById("leaveTime").textContent = leave;
+        document.getElementById("arriveTime").textContent = workTime;
+        document.getElementById("timeline").style.display = "block";
+
+        // Store wake-up time for scheduling alarm
+        currentWakeTime = { hours: parseInt(wake.split(":" )[0]), minutes: parseInt(wake.split(":" )[1]) };
+        scheduleAlarm();
+      } catch (err) {
+        console.error(err);
+        alert("Failed to calculate times: " + err.message);
+      }
     }
-    alarmTimeoutId = setTimeout(() => {
-      triggerAlarm();
-    }, diffMs);
-  }
 
-  // Handle alarm ringing
-  function triggerAlarm() {
-    document.getElementById("message").textContent = "⏰ WAKE UP! Time for work!";
-    // Optionally, play a sound or show another notification here
-  }
+    // Schedule the alarm to trigger exactly at the wake-up time
+    function scheduleAlarm() {
+      if (!currentWakeTime) return;
+      const now = new Date();
+      let alarmDate = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        currentWakeTime.hours,
+        currentWakeTime.minutes,
+        0,
+        0
+      );
+      // If the wake time has already passed today, schedule for tomorrow
+      if (alarmDate.getTime() <= now.getTime()) {
+        alarmDate.setDate(alarmDate.getDate() + 1);
+      }
+      const diffMs = alarmDate.getTime() - now.getTime();
+      // Clear any existing timer before scheduling a new one
+      if (alarmTimeoutId) {
+        clearTimeout(alarmTimeoutId);
+        alarmTimeoutId = null;
+      }
+      alarmTimeoutId = setTimeout(() => {
+        triggerAlarm();
+      }, diffMs);
+    }
 
-  // Button handler to calculate times and schedule the alarm
-  document.getElementById("setAlarmBtn").addEventListener("click", () => {
-    calculateTimes();
-    scheduleAlarm();
-    const wakeTimeStr = document.getElementById("wakeTime").textContent;
-    document.getElementById("message").textContent = `✅ Alarm set for ${wakeTimeStr}`;
-  });
-</script>
+    // Handle alarm ringing
+    function triggerAlarm() {
+      document.getElementById("message").textContent = "⏰ WAKE UP! Time for work!";
+      // Optionally, play a sound or show another notification here
+    }
 
-
-  
+    // Button handler to calculate times and schedule the alarm
+    document.getElementById("setAlarmBtn").addEventListener("click", async () => {
+      await calculateTimes();
+      const wakeTimeStr = document.getElementById("wakeTime").textContent;
+      document.getElementById("message").textContent = `✅ Alarm set for ${wakeTimeStr}`;
+    });
+  </script>
 </body>
-  
 </html>
