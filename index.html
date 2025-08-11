@@ -278,7 +278,7 @@
       }
       // Send notification
       if (await ensureNotifPermission()) {
-        new Notification('CommuteGuard Pro', { body: 'Wake up time. Let\\'s go.' });
+        new Notification('CommuteGuard Pro', { body: 'Wake up time. Let\'s go.' });
       }
       // Reset alarm state and button
       alarmActive = false;
@@ -325,8 +325,8 @@
       document.getElementById(id).addEventListener('change', savePrefs);
     });
 
-    // Register service worker and show update prompt
-    if ('serviceWorker' in navigator) {
+    // Register service worker only when served over http or https
+    if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
       navigator.serviceWorker.register('service-worker.js').then(reg => {
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
