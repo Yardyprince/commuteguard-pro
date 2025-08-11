@@ -184,31 +184,64 @@
 
     // Calculate wake-up and commute times using Google Routes API and schedule alarm
     async function calculateTimes() {
+      console.log('🚀 Starting calculateTimes...');
+      
       try {
         const apiKey = 'AIzaSyBGngOfLnpsPHmOYe8bzNpVkizpxIxWeJc';
         const workTime = document.getElementById('workTime').value;
         const prep = parseInt(document.getElementById('prepTime').value || 0);
         const workAddress = document.getElementById('workLocation').value;
+        
+        console.log('📍 Inputs:', { workTime, prep, workAddress });
+        
         // Save preferences
         savePrefs();
 
         // Get current location
+        console.log('📍 Getting current location...');
+        showMsg('Getting your location...', 'info');
+        
         const position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject);
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              console.log('✅ Got position');
+              resolve(pos);
+            },
+            (err) => {
+              console.error('❌ Location error:', err);
+              reject(err);
+            },
+            { timeout: 10000, enableHighAccuracy: true }
+          );
         });
+        
+        console.log('📍 Position:', position.coords.latitude, position.coords.longitude);
         const origLat = position.coords.latitude;
         const origLng = position.coords.longitude;
 
         // Geocode work address
+        console.log('🏢 Geocoding work address...');
+        showMsg('Looking up work location...', 'info');
+        
         const geoRes = await fetch(
           `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(workAddress)}&key=${apiKey}`
         );
         const geoData = await geoRes.json();
-        if (geoData.status !== 'OK') throw new Error('Geocoding failed');
+        console.log('🏢 Geocode response:', geoData);
+        
+        if (geoData.status !== 'OK') {
+          console.error('❌ Geocoding failed:', geoData.status);
+          throw new Error('Could not find work location: ' + geoData.status);
+        }
+        
         const destLat = geoData.results[0].geometry.location.lat;
         const destLng = geoData.results[0].geometry.location.lng;
+        console.log('🏢 Work coordinates:', destLat, destLng);
 
         // Call Google Routes API for real-time commute
+        console.log('🚗 Calculating route...');
+        showMsg('Calculating commute time...', 'info');
+        
         const routesUrl = 'https://routes.googleapis.com/directions/v2:computeRoutes';
         const payload = {
           origin: { location: { latLng: { latitude: origLat, longitude: origLng } } },
@@ -219,6 +252,9 @@
           languageCode: 'en-US',
           units: 'IMPERIAL'
         };
+        
+        console.log('🚗 Route request payload:', JSON.stringify(payload));
+        
         const routeRes = await fetch(routesUrl + `?key=${apiKey}`, {
           method: 'POST',
           headers: {
@@ -228,10 +264,27 @@
           },
           body: JSON.stringify(payload)
         });
-        if (!routeRes.ok) throw new Error('Routes API request failed');
+        
+        console.log('🚗 Route response status:', routeRes.status);
+        
+        if (!routeRes.ok) {
+          const errorText = await routeRes.text();
+          console.error('❌ Route API error:', errorText);
+          throw new Error('Could not calculate route: ' + routeRes.status);
+        }
+        
         const routeData = await routeRes.json();
+        console.log('🚗 Route data:', routeData);
+        
         const commuteSeconds = routeData.routes?.[0]?.duration?.seconds || 0;
-        const commute = Math.ceil(commuteSeconds / 60);
+        let commute = Math.ceil(commuteSeconds / 60);
+        
+        console.log('⏱️ Commute time:', commute, 'minutes');
+        
+        if (commute === 0) {
+          console.warn('⚠️ Warning: Commute time is 0 minutes, using default 15 minutes');
+          commute = 15; // Default to 15 minutes if API returns 0
+        }
 
         // Calculate times
         const [h, m] = workTime.split(':').map(Number);
@@ -242,6 +295,17 @@
         const wake = formatTime(wakeMins);
         const ready = formatTime(wakeMins + prep);
         const leave = formatTime(leaveMins);
+
+        console.log('📊 Calculations:', {
+          workMins,
+          commute,
+          prep,
+          leaveMins,
+          wakeMins,
+          wake,
+          ready,
+          leave
+        });
 
         // Update UI timeline
         document.getElementById('wakeTime').textContent = wake;
@@ -258,8 +322,9 @@
         scheduleAlarm();
         showAlarmControls();
       } catch (err) {
-        console.error(err);
-        showMsg('Could not calculate right now. Using last known route if available.', 'error');
+        console.error('❌ Error in calculateTimes:', err);
+        showMsg(`Error: ${err.message}`, 'error');
+        setBusy(document.getElementById('setAlarmBtn'), false);
       }
     }
 
@@ -407,6 +472,8 @@
     // Event listener for the alarm button (updated for native bridge)
     const alarmBtn = document.getElementById('setAlarmBtn');
     alarmBtn.addEventListener('click', async () => {
+      console.log('🔘 Alarm button clicked');
+      
       if (alarmActive) {
         // Cancel both JavaScript timeout and native alarm
         if (alarmTimeoutId) {
@@ -421,6 +488,7 @@
         setBusy(alarmBtn, false);
         showMsg('Alarm canceled.', 'info');
         hideAlarmControls();
+        document.getElementById('timeline').style.display = 'none'; // Hide timeline
         return;
       }
       
@@ -428,18 +496,37 @@
       await requestNotificationPermission();
       
       // Set a new alarm
-      if (!validateInputs()) return;
+      if (!validateInputs()) {
+        console.log('❌ Validation failed');
+        return;
+      }
+      
       setBusy(alarmBtn, true);
-      await calculateTimes();
-      const wakeStr = document.getElementById('wakeTime').textContent;
-      showMsg(`✅ Alarm set for ${wakeStr}`, 'info');
-      alarmBtn.textContent = 'Cancel Alarm';
-      alarmActive = true;
-      setBusy(alarmBtn, false);
+      
+      try {
+        await calculateTimes();
+        const wakeStr = document.getElementById('wakeTime').textContent;
+        
+        // Only proceed if we have a valid wake time
+        if (wakeStr && wakeStr !== '--:--') {
+          showMsg(`✅ Alarm set for ${wakeStr}`, 'info');
+          alarmBtn.textContent = 'Cancel Alarm';
+          alarmActive = true;
+        } else {
+          console.error('❌ No valid wake time calculated');
+          showMsg('Failed to calculate alarm time', 'error');
+        }
+      } catch (error) {
+        console.error('❌ Error setting alarm:', error);
+        showMsg('Error: ' + error.message, 'error');
+      } finally {
+        setBusy(alarmBtn, false);
+      }
     });
 
     // Load preferences on page load and request notifications
     window.addEventListener('load', async () => {
+      console.log('📱 App loaded');
       loadPrefs();
       await requestNotificationPermission();
       stopAlarmSound(); // Stop any playing alarm sounds when app opens
