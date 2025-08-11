@@ -49,6 +49,21 @@
       font-size: 18px;
       text-align: center;
     }
+    #snoozeBtn {
+      margin-top: 10px;
+      padding: 10px;
+      width: 100%;
+      border: none;
+      border-radius: 8px;
+      background: #ff6b6b;
+      color: white;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #snoozeBtn:hover {
+      background: #ff5252;
+    }
   </style>
 </head>
 <body>
@@ -77,6 +92,9 @@
         <li>🚗 Leave by: <span id="leaveTime">--:--</span></li>
         <li>🏢 Arrive at Work: <span id="arriveTime">--:--</span></li>
       </ul>
+      <div id="alarmControls" style="display: none;">
+        <button id="snoozeBtn" onclick="snoozeAlarm()">😴 Snooze Alarm</button>
+      </div>
     </div>
     <div id="message"></div>
   </div>
@@ -238,6 +256,7 @@
           minutes: parseInt(wake.split(':')[1])
         };
         scheduleAlarm();
+        showAlarmControls();
       } catch (err) {
         console.error(err);
         showMsg('Could not calculate right now. Using last known route if available.', 'error');
@@ -249,10 +268,16 @@
       if (!currentWakeTime) return;
       
       const wakeStr = `${String(currentWakeTime.hours).padStart(2, '0')}:${String(currentWakeTime.minutes).padStart(2, '0')}`;
+      const prepTime = parseInt(document.getElementById('prepTime').value || 30);
+      const workTime = document.getElementById('workTime').value;
+      const workLocation = document.getElementById('workLocation').value;
+      
+      // Show estimated time message
+      showMsg('⏰ Alarm set! I\'ll recheck traffic 30 min before to ensure accuracy.', 'info');
       
       // Use native bridge to schedule iOS notification if available
       if (window.nativeBridge) {
-        window.nativeBridge.setAlarm(wakeStr);
+        window.nativeBridge.setAlarm(wakeStr, prepTime, workTime, workLocation);
       }
       
       // Still use setTimeout for immediate feedback when app is open
@@ -284,6 +309,7 @@
     // Handle alarm ringing: show message, beep, notification, reset button (updated for native bridge)
     async function triggerAlarm() {
       showMsg('⏰ WAKE UP! Time for work!');
+      showAlarmControls();
       
       // Use native sound if available
       if (window.nativeBridge) {
@@ -307,15 +333,76 @@
       if (!window.nativeBridge && await requestNotificationPermission()) {
         new Notification('CommuteGuard Pro', { body: 'Wake up time. Let\'s go.' });
       }
-      
-      // Reset alarm state and button
+    }
+
+    // Handle snooze button
+    function snoozeAlarm() {
+      if (window.nativeBridge) {
+        window.nativeBridge.snoozeAlarm();
+        showMsg('Alarm snoozed', 'info');
+      }
+    }
+
+    // Stop alarm sound when user opens app
+    function stopAlarmSound() {
+      if (window.nativeBridge) {
+        window.nativeBridge.stopAlarmSound();
+      }
+    }
+
+    // Show/hide alarm controls
+    function showAlarmControls() {
+      const controls = document.getElementById('alarmControls');
+      if (controls && alarmActive) {
+        controls.style.display = 'block';
+      }
+    }
+
+    function hideAlarmControls() {
+      const controls = document.getElementById('alarmControls');
+      if (controls) {
+        controls.style.display = 'none';
+      }
+    }
+
+    // Callbacks from native
+    window.alarmSnoozed = function(interval) {
+      const minutes = Math.round(interval / 60);
+      showMsg(`Alarm snoozed for ${minutes} minutes`, 'info');
+    };
+
+    window.userStartedDriving = function() {
+      showMsg('🚗 Drive safe! Alarm stopped automatically.', 'info');
       alarmActive = false;
       const btn = document.getElementById('setAlarmBtn');
       if (btn) {
         btn.textContent = '🔔 Calculate & Set Alarm';
         setBusy(btn, false);
       }
-    }
+      hideAlarmControls();
+    };
+
+    // New callback for traffic recheck
+    window.trafficRechecked = function(newWakeTime, trafficChanged) {
+      if (trafficChanged) {
+        showMsg(`🚦 Traffic update: Wake time adjusted to ${newWakeTime}`, 'info');
+        document.getElementById('wakeTime').textContent = newWakeTime;
+        
+        // Update other times based on new wake time
+        const [h, m] = newWakeTime.split(':').map(Number);
+        const wakeMins = h * 60 + m;
+        const prep = parseInt(document.getElementById('prepTime').value || 30);
+        
+        const ready = formatTime(wakeMins + prep);
+        const leave = formatTime(wakeMins + prep);
+        
+        document.getElementById('readyTime').textContent = ready;
+        document.getElementById('leaveTime').textContent = leave;
+      }
+    };
+
+    window.alarmScheduled = true;
+    window.alarmCanceled = true;
 
     // Event listener for the alarm button (updated for native bridge)
     const alarmBtn = document.getElementById('setAlarmBtn');
@@ -333,6 +420,7 @@
         alarmBtn.textContent = '🔔 Calculate & Set Alarm';
         setBusy(alarmBtn, false);
         showMsg('Alarm canceled.', 'info');
+        hideAlarmControls();
         return;
       }
       
@@ -354,6 +442,7 @@
     window.addEventListener('load', async () => {
       loadPrefs();
       await requestNotificationPermission();
+      stopAlarmSound(); // Stop any playing alarm sounds when app opens
     });
 
     // Save preferences when inputs change
