@@ -146,8 +146,17 @@
       el.style.color = kind === 'error' ? '#ffb3b3' : '#fff';
     }
 
-    // Request notification permission if needed
-    async function ensureNotifPermission() {
+    // Request notification permission (updated for native bridge)
+    async function requestNotificationPermission() {
+      // If native bridge exists, use it
+      if (window.nativeBridge) {
+        window.nativeBridge.requestPermission();
+        // Wait a bit for the permission response
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return true;
+      }
+      
+      // Fallback to web notifications
       if (!('Notification' in window)) return false;
       if (Notification.permission === 'granted') return true;
       if (Notification.permission === 'denied') return false;
@@ -235,9 +244,18 @@
       }
     }
 
-    // Schedule the alarm to trigger exactly at the wake-up time
+    // Schedule the alarm to trigger exactly at the wake-up time (updated for native bridge)
     function scheduleAlarm() {
       if (!currentWakeTime) return;
+      
+      const wakeStr = `${String(currentWakeTime.hours).padStart(2, '0')}:${String(currentWakeTime.minutes).padStart(2, '0')}`;
+      
+      // Use native bridge to schedule iOS notification if available
+      if (window.nativeBridge) {
+        window.nativeBridge.setAlarm(wakeStr);
+      }
+      
+      // Still use setTimeout for immediate feedback when app is open
       const now = new Date();
       let alarmDate = new Date(
         now.getFullYear(),
@@ -252,34 +270,44 @@
         alarmDate.setDate(alarmDate.getDate() + 1);
       }
       const diffMs = alarmDate.getTime() - now.getTime();
+      
       if (alarmTimeoutId) {
         clearTimeout(alarmTimeoutId);
         alarmTimeoutId = null;
       }
+      
       alarmTimeoutId = setTimeout(() => {
         triggerAlarm();
       }, diffMs);
     }
 
-    // Handle alarm ringing: show message, beep, notification, reset button
+    // Handle alarm ringing: show message, beep, notification, reset button (updated for native bridge)
     async function triggerAlarm() {
       showMsg('⏰ WAKE UP! Time for work!');
-      // Play beep
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = ctx.createOscillator();
-        oscillator.type = 'sine';
-        oscillator.frequency.value = 440;
-        oscillator.connect(ctx.destination);
-        oscillator.start();
-        oscillator.stop(ctx.currentTime + 1);
-      } catch (err) {
-        console.error(err);
+      
+      // Use native sound if available
+      if (window.nativeBridge) {
+        window.nativeBridge.playSound();
+      } else {
+        // Fallback to web audio
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const oscillator = ctx.createOscillator();
+          oscillator.type = 'sine';
+          oscillator.frequency.value = 440;
+          oscillator.connect(ctx.destination);
+          oscillator.start();
+          oscillator.stop(ctx.currentTime + 1);
+        } catch (err) {
+          console.error(err);
+        }
       }
-      // Send notification
-      if (await ensureNotifPermission()) {
+      
+      // Send web notification as fallback
+      if (!window.nativeBridge && await requestNotificationPermission()) {
         new Notification('CommuteGuard Pro', { body: 'Wake up time. Let\'s go.' });
       }
+      
       // Reset alarm state and button
       alarmActive = false;
       const btn = document.getElementById('setAlarmBtn');
@@ -289,14 +317,17 @@
       }
     }
 
-    // Event listener for the alarm button
+    // Event listener for the alarm button (updated for native bridge)
     const alarmBtn = document.getElementById('setAlarmBtn');
     alarmBtn.addEventListener('click', async () => {
       if (alarmActive) {
-        // Cancel the alarm
+        // Cancel both JavaScript timeout and native alarm
         if (alarmTimeoutId) {
           clearTimeout(alarmTimeoutId);
           alarmTimeoutId = null;
+        }
+        if (window.nativeBridge) {
+          window.nativeBridge.cancelAlarm();
         }
         alarmActive = false;
         alarmBtn.textContent = '🔔 Calculate & Set Alarm';
@@ -304,6 +335,10 @@
         showMsg('Alarm canceled.', 'info');
         return;
       }
+      
+      // Request notification permission first
+      await requestNotificationPermission();
+      
       // Set a new alarm
       if (!validateInputs()) return;
       setBusy(alarmBtn, true);
@@ -312,12 +347,13 @@
       showMsg(`✅ Alarm set for ${wakeStr}`, 'info');
       alarmBtn.textContent = 'Cancel Alarm';
       alarmActive = true;
+      setBusy(alarmBtn, false);
     });
 
     // Load preferences on page load and request notifications
-    window.addEventListener('load', () => {
+    window.addEventListener('load', async () => {
       loadPrefs();
-      ensureNotifPermission();
+      await requestNotificationPermission();
     });
 
     // Save preferences when inputs change
